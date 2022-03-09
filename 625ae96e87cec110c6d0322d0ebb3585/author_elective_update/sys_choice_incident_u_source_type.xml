@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_choice action="INSERT_OR_UPDATE" field="u_source_type" table="incident" version="3">
+        <sys_choice_set action="INSERT_OR_UPDATE">
+            <element>u_source_type</element>
+            <name>incident</name>
+            <sys_class_name>sys_choice_set</sys_class_name>
+            <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+            <sys_created_on>2022-03-01 08:57:09</sys_created_on>
+            <sys_id>53b47154874ec110672463973cbb35f9</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>u_source_type</sys_name>
+            <sys_package display_value="Global" source="global">global</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="DD-Lighting Integration-Global">625ae96e87cec110c6d0322d0ebb3585</sys_scope>
+            <sys_update_name>sys_choice_incident_u_source_type</sys_update_name>
+            <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+            <sys_updated_on>2022-03-08 08:01:50</sys_updated_on>
+        </sys_choice_set>
+        <sys_choice action="INSERT_OR_UPDATE">
+            <dependent_value/>
+            <element>u_source_type</element>
+            <hint/>
+            <inactive>false</inactive>
+            <label>Lightning</label>
+            <language>en</language>
+            <name>incident</name>
+            <sequence/>
+            <synonyms/>
+            <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+            <sys_created_on>2022-03-01 08:57:09</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>0db47154874ec110672463973cbb354e</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+            <sys_updated_on>2022-03-01 08:57:09</sys_updated_on>
+            <value>Lightning</value>
+        </sys_choice>
+        <sys_choice action="INSERT_OR_UPDATE">
+            <dependent_value/>
+            <element>u_source_type</element>
+            <hint/>
+            <inactive>false</inactive>
+            <label>Opsramp</label>
+            <language>en</language>
+            <name>incident</name>
+            <sequence>20</sequence>
+            <synonyms/>
+            <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+            <sys_created_on>2022-03-01 08:57:26</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>d3c47154874ec110672463973cbb3554</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+            <sys_updated_on>2022-03-01 08:57:26</sys_updated_on>
+            <value>Opsramp</value>
+        </sys_choice>
+        <sys_choice action="INSERT_OR_UPDATE">
+            <dependent_value/>
+            <element>u_source_type</element>
+            <hint/>
+            <inactive>false</inactive>
+            <label>Apex</label>
+            <language>en</language>
+            <name>incident</name>
+            <sequence>30</sequence>
+            <synonyms/>
+            <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+            <sys_created_on>2022-03-01 08:57:43</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>1bd4b154874ec110672463973cbb35b6</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+            <sys_updated_on>2022-03-01 08:57:43</sys_updated_on>
+            <value>Apex</value>
+        </sys_choice>
+        <sys_choice action="INSERT_OR_UPDATE">
+            <dependent_value/>
+            <element>u_source_type</element>
+            <hint/>
+            <inactive>false</inactive>
+            <label>NGCS</label>
+            <language>en</language>
+            <name>incident</name>
+            <sequence>40</sequence>
+            <synonyms/>
+            <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+            <sys_created_on>2022-03-01 08:59:59</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>34657954874ec110672463973cbb3535</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+            <sys_updated_on>2022-03-01 08:59:59</sys_updated_on>
+            <value>NGCS</value>
+        </sys_choice>
+    </sys_choice>
+    <sys_claim action="INSERT_OR_UPDATE">
+        <claim_owner_scope display_value="DD-Lighting Integration-Global">625ae96e87cec110c6d0322d0ebb3585</claim_owner_scope>
+        <claim_timestamp>17f688c75fb0000001</claim_timestamp>
+        <metadata_update_name>sys_choice_incident_u_source_type</metadata_update_name>
+        <previous_claim_app_version>1.0.0</previous_claim_app_version>
+        <previous_claim_name>DD-Lighting Integration-Global</previous_claim_name>
+        <previous_claim_scope>625ae96e87cec110c6d0322d0ebb3585</previous_claim_scope>
+        <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+        <sys_created_on>2022-03-08 08:01:50</sys_created_on>
+        <sys_id>783be12287020510c6d0322d0ebb3510</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+        <sys_updated_on>2022-03-08 08:01:50</sys_updated_on>
+    </sys_claim>
+</record_update>

@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>global.DellNGCSIncidentUtils</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description>Dell NGCS generic Incident ticket integration utility script</description>
+        <name>DellNGCSIncidentUtils</name>
+        <script><![CDATA[var DellNGCSIncidentUtils = Class.create();
+DellNGCSIncidentUtils.prototype = Object.extendsObject(DellIntegrationUtils, {
+    initialize: function() {
+        this.system = 'Dell - DDNGCS-REST-Generic';
+        this.debug = true; //Always true for logging every transaction
+        DellIntegrationUtils.prototype.initialize.call(this, this.system, this.debug);
+        this.source_system = 'NGCS';
+    },
+
+    validateCompanySubscription: function(incidentData) {
+        var resObj = {};
+        resObj.subscription_exist = false;
+
+        var cmpny = this.getCiFromSerialNum(incidentData.ci_serial_number.toString());
+        if (cmpny.company_exist) {
+            var serv = new GlideRecord('cmdb_ci_service');
+            serv.addQuery('u_agreement_number', incidentData.service_agreement_number.toString());
+            serv.addQuery('company.sys_id', cmpny.company);
+            //serv.addQuery('u_offering.u_offer_type', 'Apex');
+            serv.addNotNullQuery('u_agreement_number');
+            serv.queryNoDomain();
+            if (serv.next()) {
+                resObj.subscription_exist = true;
+                resObj.business_service = serv.getUniqueValue();
+                resObj.ci_sys_id = cmpny.ci_sys_id;
+                resObj.company = cmpny.company;
+                resObj.company_mup_id = cmpny.company_mup_id;
+                resObj.sys_domain = cmpny.sys_domain;
+            }
+        } else {
+            resObj.duplicate_ci = cmpny.duplicate_ci;
+        }
+
+        return resObj;
+    },
+
+    getCiFromSerialNum: function(ci_snumber) {
+        var resObj = {};
+        resObj.duplicate_ci = false;
+        resObj.company_exist = false;
+
+        //Identify CI duplicate
+        var ciAgg = new GlideAggregate('cmdb_ci');
+        ciAgg.addQuery('serial_number', ci_snumber);
+        ciAgg.addNotNullQuery('serial_number');
+        ciAgg.addNotNullQuery('company');
+        ciAgg.addAggregate('COUNT');
+        ciAgg.queryNoDomain();
+
+        if (ciAgg.next()) {
+            if (ciAgg.getAggregate('COUNT') > 1) {
+                resObj.duplicate_ci = true;
+            } else {
+                //Query ci record to fetch additional values
+                var ciGr = new GlideRecord('cmdb_ci');
+                ciGr.addQuery('serial_number', ci_snumber);
+                ciGr.addNotNullQuery('serial_number');
+                ciGr.addNotNullQuery('company');
+                ciGr.queryNoDomain();
+
+                if (ciGr.next()) {
+                    resObj.company_exist = true;
+                    resObj.company = ciGr.getValue('company');
+                    resObj.sys_domain = ciGr.company.sys_domain.toString();
+                    resObj.ci_sys_id = ciGr.getUniqueValue();
+                    resObj.company_mup_id = ciGr.company.u_mup_id.toString();
+                }
+            }
+        }
+        return resObj;
+    },
+
+    getIncCategory: function(incidentData) {
+        var resObj = {};
+        resObj.category = '';
+        resObj.subcategory = '';
+        if (gs.nil(incidentData.category)) {
+            //Identify category values from system property
+            var categoryConf = gs.getProperty('dell.int.lightning.ngcs_incident_categorization', null);
+            if (categoryConf) {
+                var categoryConfList = categoryConf.split(';');
+                for (i = 0; i < categoryConfList.length; i++) {
+                    if (categoryConfList[i]) {
+                        var catMap = categoryConfList[i].split(',');
+                        if (catMap.length >= 2) {
+                            var ticketSource = catMap[0].toString();
+                            if (ticketSource == incidentData.ticket_source.toString()) {
+                                resObj.category = catMap[1].toString();
+                                resObj.subcategory = catMap[2].toString();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            //Validate category values from incoming payload
+            var choGr = new GlideRecord('sys_choice');
+            choGr.addEncodedQuery('element=category^name=Incident^label=' + incidentData.category);
+            choGr.queryNoDomain();
+
+            if (choGr.next()) {
+                resObj.category = choGr.value.toString();
+                if (!gs.nil(incidentData.subcategory)) {
+                    var schoGr = new GlideRecord('sys_choice');
+                    schoGr.addEncodedQuery('element=subcategory^name=Incident^dependent_value=' + choGr.value + '^ORdependent_valueISEMPTY^label=' + incidentData.subcategory);
+                    schoGr.queryNoDomain();
+                    if (schoGr.next()) {
+                        resObj.subcategory = schoGr.value.toString();
+                    }
+                }
+            }
+        }
+        return resObj;
+    },
+
+    getContactType: function(incidentData) {
+        var resObj = {};
+        resObj.contact_type = '';
+        if (!gs.nil(incidentData.contact_type.toString())) {
+            var choGr = new GlideRecord('sys_choice');
+            choGr.addEncodedQuery('element=contact_type^name=task^label=' + incidentData.contact_type.toString());
+            choGr.queryNoDomain();
+            if (choGr.next()) {
+                resObj.contact_type = choGr.value.toString();
+            }
+        }
+        if (gs.nil(resObj.contact_type)) {
+            //ticket source specific contact type config
+            if (incidentData.ticket_source.toString() == 'lightning') {
+                switch (incidentData.contact_type.toString()) {
+                    case 'ConnectHome':
+                    case 'connecthome':
+                        resObj.contact_type = 'monitoring';
+                        break;
+                    default:
+                        resObj.contact_type = 'self-service'; //Any other sources set to self-service
+                        break;
+                }
+            } else {
+                resObj.contact_type = gs.getProperty('dell.int.lightning.ngcs_incident_default_contact_type', 'self-service');
+            }
+        }
+        return resObj;
+    },
+
+    getStatusValue: function(incidentData) {
+        var resObj = {};
+        resObj.status = 1;
+        switch (incidentData.status.toString()) {
+            //case 'Resolved':
+            //    resObj.status = 6;
+            //    break;
+            //case 'Closed':
+            //    resObj.status = 7;
+            //    break;
+            case 'In Progress':
+                resObj.status = 2;
+                if (incidentData.ticket_source.toString() == 'lightning') resObj.status = 1;
+                break;
+            default:
+                resObj.status = 1;
+        }
+        return resObj;
+    },
+
+    getAssignedToUser: function(assigned_to_email, assigned_to_badge) {
+        var res = '';
+
+        if (gs.nil(assigned_to_email) && gs.nil(assigned_to_badge)) return res;
+
+        var assGr = new GlideRecord('sys_user');
+        if (assigned_to_email && assigned_to_badge) {
+            var qry = assGr.addQuery('email', assigned_to_email);
+            qry.addOrCondition('employee_number', assigned_to_badge);
+        } else if (assigned_to_email) {
+            assGr.addQuery('email', assigned_to_email);
+        } else {
+            assGr.addQuery('employee_number', assigned_to_badge);
+        }
+        assGr.addQuery('active',true);
+        assGr.orderByDesc('sys_updated_on');
+        assGr.queryNoDomain();
+        if (assGr.next()) {
+            res = assGr.email.toString();
+        }
+
+        return res;
+    },
+
+    getCustVisibilitySetting: function(incidentData) {
+        var res = false;
+        if (!gs.nil(incidentData.customer_visible)) {
+            if (incidentData.customer_visible.toString() == 'true') res = true;
+        } else {
+            res = gs.getProperty('dell.int.lightning.ngcs_incident_customer_visibility', false);
+        }
+        return res;
+    },
+
+    createIncident: function(incidentData, request) {
+        //Get category & subcategory
+        var catData = this.getIncCategory(incidentData);
+        var contData = this.getContactType(incidentData);
+        var stateDat = this.getStatusValue(incidentData);
+        var custVisibility = this.getCustVisibilitySetting(incidentData);
+        var gr = new GlideRecord('incident');
+        gr.initialize();
+        gr.description = incidentData.description.toString() || null;
+        gr.short_description = incidentData.short_description.toString();
+        gr.category = catData.category;
+        gr.subcategory = catData.subcategory;
+        gr.contact_type = contData.contact_type;
+        gr.caller_id = incidentData.caller;
+        gr.urgency = (incidentData.urgency) ? parseInt(incidentData.urgency) : 4;
+        gr.impact = (incidentData.impact) ? parseInt(incidentData.impact) : 2;
+        gr.company = incidentData.company;
+        //gr.sys_domain = incidentData.sys_domain;
+        gr.business_service = incidentData.business_service;
+        gr.cmdb_ci = incidentData.ci_sys_id;
+        gr.u_service_impacting = custVisibility;
+        gr.state = stateDat.status;
+        //To support auto routing functionality, assign ticket post creation.
+        //gr.assignment_group = ;
+        //gr.assigned_to = ;
+        if (incidentData.ticket_source.toString() == 'lightning') {
+            gr.u_lightning_case = incidentData.u_lightning_case;
+            gr.u_lightning_id = incidentData.u_lightning_id;
+			gr.u_source_type = 'Lightning';
+        }
+
+        var incId = gr.insert();
+
+        if (incId) {
+            //this.attachment(gr, incidentData);
+            var result = {
+                'number': gr.number.toString(),
+                'priority': gr.priority.getDisplayValue(),
+                'state': gr.state.getDisplayValue(),
+                'sys_id': gr.sys_id,
+            };
+            if (incidentData.ticket_source) this.system += ' - ' + incidentData.ticket_source.toString();
+            this.addLog(' Inbound, POST, ' + request.uri + ', ' + gs.getSession().getClientIP() + ', ' + (result.number ? 200 : 500) + ', ' + JSON.stringify(request.body.data) + ', ' + JSON.stringify(result) + ', ' + gr.getTableName() + ', ' + gr.getUniqueValue(), this.system);
+
+            //Post create Incident action, if necessry
+            if (incidentData.assigned_to_email || incidentData.assignment_group || incidentData.assigned_to_badge) {
+                var assigned_to_email = this.getAssignedToUser(incidentData.assigned_to_email, incidentData.assigned_to_badge);
+                gs.eventQueue('ddngcs.int.generic.assignIncident', gr, assigned_to_email, incidentData.assignment_group);
+            }
+            return result;
+        } else {
+            this.addError(' Inbound, POST, ' + request.uri + ', ' + gs.getSession().getClientIP() + ', ' + (result.number ? 200 : 500) + ', ' + JSON.stringify(request.body.data) + ', ' + JSON.stringify(result) + ', ' + gr.getTableName() + ', ' + gr.getUniqueValue(), this.system);
+        }
+    },
+
+    type: 'DellNGCSIncidentUtils'
+});]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>Meenatchisundaram_Th@Dellteam.com</sys_created_by>
+        <sys_created_on>2021-11-19 11:46:38</sys_created_on>
+        <sys_id>1359cda31bbb38908afeca65624bcb48</sys_id>
+        <sys_mod_count>28</sys_mod_count>
+        <sys_name>DellNGCSIncidentUtils</sys_name>
+        <sys_package display_value="Global" source="global">global</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DD-Lighting Integration-Global">625ae96e87cec110c6d0322d0ebb3585</sys_scope>
+        <sys_update_name>sys_script_include_1359cda31bbb38908afeca65624bcb48</sys_update_name>
+        <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+        <sys_updated_on>2022-03-08 08:01:50</sys_updated_on>
+    </sys_script_include>
+    <sys_claim action="INSERT_OR_UPDATE">
+        <claim_owner_scope display_value="DD-Lighting Integration-Global">625ae96e87cec110c6d0322d0ebb3585</claim_owner_scope>
+        <claim_timestamp>17f688c766b0000001</claim_timestamp>
+        <metadata_update_name>sys_script_include_1359cda31bbb38908afeca65624bcb48</metadata_update_name>
+        <previous_claim_app_version>1.0.0</previous_claim_app_version>
+        <previous_claim_name>DD-Lighting Integration-Global</previous_claim_name>
+        <previous_claim_scope>625ae96e87cec110c6d0322d0ebb3585</previous_claim_scope>
+        <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+        <sys_created_on>2022-03-08 08:01:50</sys_created_on>
+        <sys_id>b83be12287020510c6d0322d0ebb3514</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+        <sys_updated_on>2022-03-08 08:01:50</sys_updated_on>
+    </sys_claim>
+</record_update>

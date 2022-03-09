@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update sys_domain="398b9b16db72a4104d4767e813961942" table="sys_script">
+    <sys_script action="INSERT_OR_UPDATE">
+        <abort_action>false</abort_action>
+        <access>package_private</access>
+        <action_delete>false</action_delete>
+        <action_insert>true</action_insert>
+        <action_query>false</action_query>
+        <action_update>false</action_update>
+        <active>true</active>
+        <add_message>false</add_message>
+        <advanced>true</advanced>
+        <change_fields>false</change_fields>
+        <client_callable>false</client_callable>
+        <collection>incident</collection>
+        <condition/>
+        <description/>
+        <execute_function>false</execute_function>
+        <filter_condition table="incident">business_service.u_offering.u_offer_type=Apex^u_lightning_idISEMPTY^cmdb_ci.serial_numberISNOTEMPTY^u_source_type!=Lightning^EQ<item display_value="Apex" endquery="false" field="business_service.u_offering.u_offer_type" goto="false" newquery="false" operator="=" or="false" value="Apex"/>
+            <item endquery="false" field="u_lightning_id" goto="false" newquery="false" operator="ISEMPTY" or="false" value=""/>
+            <item endquery="false" field="cmdb_ci.serial_number" goto="false" newquery="false" operator="ISNOTEMPTY" or="false" value=""/>
+            <item display_value="Lightning" endquery="false" field="u_source_type" goto="false" newquery="false" operator="!=" or="false" value="Lightning"/>
+            <item endquery="true" field="" goto="false" newquery="false" operator="=" or="false" value=""/>
+        </filter_condition>
+        <is_rest>false</is_rest>
+        <message/>
+        <name>Lightning Case Creation_INC</name>
+        <order>100</order>
+        <priority>100</priority>
+        <rest_method/>
+        <rest_method_text/>
+        <rest_service/>
+        <rest_service_text/>
+        <rest_variables/>
+        <role_conditions/>
+        <script><![CDATA[(function executeRule(current, previous /*null when async*/ ) {
+
+
+    var lt = '';
+    var ci_sn = current.cdmb_ci.serial_number;
+		//gs.addInfoMessage('hi' +ci_sn);
+    if (ci_sn == '' || ci_sn == 'undefined' ) {
+      
+		gs.addInfoMessage("Inident CI does not have Serial Number, hence Lightning case cannot be created");
+    } else {
+
+
+        var id_type = "";
+        var server_url = gs.getProperty('dell.int.lightning.server_url');
+        var urls = gs.getProperty('instance_name');
+        var profile = gs.getProperty('dell.int.lightning.profile');
+        var api_key = gs.getProperty('dell.int.lightning.api_key');
+
+        var cust_visible = current.u_service_impacting;
+        var num = current.number;
+        var serial_num = current.cmdb_ci.serial_number;
+        var mid = current.company.u_sdr_manufacturer_id;
+        var caller = current.caller_id;
+        var sd = current.short_description;
+        var dd = current.description;
+        var ci1 = current.business_service.u_offering.u_offer_type;
+        if (ci1 == '')
+            ci1 = 'CAPEX';
+        // setting sn & stag based on length
+        if (serial_num.toString().length <= 7) {
+            mid = 1;
+            id_type = 'serviceTag';
+        } else {
+            mid = 2;
+            id_type = 'serialNumber';
+        }
+
+        //to get currentident caller details
+        var usr1 = new GlideRecord('sys_user');
+        usr1.addQuery('sys_id', caller);
+        usr1.query();
+        if (usr1.next()) {
+			//gs.addInfoMessage('user name');
+            var fname = usr1.first_name;
+            var lname = usr1.last_name;
+            var ph_num = usr1.phone;
+            var email = usr1.email;
+            //var employee_numb = usr1.employee_number;
+            //var full_name = fname + " " + lname;
+        }
+
+        var r = new sn_ws.RESTMessageV2('New Lightning', 'create_case');
+        r.setAuthenticationProfile('oauth2',profile);
+        r.setStringParameterNoEscape('server_url', server_url);
+        r.setStringParameterNoEscape('api_key',api_key);
+        r.setStringParameterNoEscape('url',urls);
+        r.setStringParameterNoEscape('subject', sd);
+        r.setStringParameterNoEscape('description', dd);
+        r.setStringParameterNoEscape('externalCaseId', num);
+        r.setStringParameterNoEscape('first_name', fname);
+        r.setStringParameterNoEscape('primary_number', ph_num);
+        r.setStringParameterNoEscape('primary_email', email);
+        //r.setStringParameterNoEscape('employee_number', employee_numb);
+        r.setStringParameterNoEscape('last_name', lname);
+        //r.setStringParameterNoEscape('full_name', full_name);
+        r.setStringParameterNoEscape('snumber', serial_num);
+        r.setStringParameterNoEscape('mid', mid);
+        r.setStringParameterNoEscape('ext1', ci1);
+        r.setStringParameterNoEscape('extra2',current.sys_id);
+        r.setStringParameterNoEscape('id_type', id_type);
+        r.setStringParameterNoEscape('cv', cust_visible);
+
+        var response = r.execute();
+        var responseBody = response.getBody();
+        var httpStatus = response.getStatusCode();
+       
+        if (httpStatus == '201') {
+			//gs.addInfoMessage('case created successfully for incdent ');
+            gs.log('case created successfully for current ' + num, 'lightning');
+            gs.log('lightning response' +num + '  ' + responseBody, 'lightning');
+            lt = responseBody;
+
+        } else {
+			gs.addInfoMessage('case not created in Lightning ' + num, 'lightning');
+            gs.log('number is ' + num + ' ' + responseBody, 'lightning');
+			
+            //gs.addErrorMessage('Case Creation not successful');
+            //lt = '';
+        }
+
+
+    }
+
+    if (lt != '') {
+        var obj1 = new JSON().decode(lt);
+        var num1 = obj1['caseNumber'];
+        var num2 = obj1['id'];
+        gs.addInfoMessage('Case Created successfully ' + num1);
+		
+		var inc = new GlideRecord('incident');
+		inc.addQuery('sys_id',current.sys_id);
+		inc.query();
+		if(inc.next()){
+        
+
+        inc.u_lightning_case = num1;
+        inc.u_lightning_id = num2;
+        inc.work_notes = 'Lightning case Created Successfully ' + num1;
+        inc.u_source_type = 'NGCS';
+        inc.update();
+		}
+
+    } else {
+        gs.addErrorMessage('Lightning case not created, please create an incident');
+    }
+
+})(current, previous);]]></script>
+        <sys_class_name>sys_script</sys_class_name>
+        <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+        <sys_created_on>2022-03-01 08:50:51</sys_created_on>
+        <sys_domain>398b9b16db72a4104d4767e813961942</sys_domain>
+        <sys_domain_path>!&amp;&amp;/!!!/</sys_domain_path>
+        <sys_id>fa43b550874ec110672463973cbb35cc</sys_id>
+        <sys_mod_count>26</sys_mod_count>
+        <sys_name>Lightning Case Creation_INC</sys_name>
+        <sys_overrides/>
+        <sys_package display_value="Global" source="global">global</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DD-Lighting Integration-Global">625ae96e87cec110c6d0322d0ebb3585</sys_scope>
+        <sys_update_name>sys_script_fa43b550874ec110672463973cbb35cc</sys_update_name>
+        <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+        <sys_updated_on>2022-03-08 08:01:50</sys_updated_on>
+        <template/>
+        <when>after</when>
+    </sys_script>
+    <sys_translated_text action="delete_multiple" query="documentkey=fa43b550874ec110672463973cbb35cc"/>
+    <sys_claim action="INSERT_OR_UPDATE">
+        <claim_owner_scope display_value="DD-Lighting Integration-Global">625ae96e87cec110c6d0322d0ebb3585</claim_owner_scope>
+        <claim_timestamp>17f688c77240000001</claim_timestamp>
+        <metadata_update_name>sys_script_fa43b550874ec110672463973cbb35cc</metadata_update_name>
+        <previous_claim_app_version>1.0.0</previous_claim_app_version>
+        <previous_claim_name>DD-Lighting Integration-Global</previous_claim_name>
+        <previous_claim_scope>625ae96e87cec110c6d0322d0ebb3585</previous_claim_scope>
+        <sys_created_by>Kanimozhi_Panchatcha@Dell.com</sys_created_by>
+        <sys_created_on>2022-03-08 08:01:50</sys_created_on>
+        <sys_id>c93be12287020510c6d0322d0ebb3527</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_updated_by>Kanimozhi_Panchatcha@Dell.com</sys_updated_by>
+        <sys_updated_on>2022-03-08 08:01:50</sys_updated_on>
+    </sys_claim>
+</record_update>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element attributes="all_tables.query_hints=true,email_client=true,hasWorkflow=true,live_feed=true,query_hints=true" audit="true" extends="task" label="Incident" max_length="40" name="incident" sizeclass="106953" text_index="true" type="collection">
+        <element choice="1" label="Source Type" max_length="40" name="u_source_type" type="choice">
+            <choice>
+                <element inactive_on_update="false" label="Lightning" value="Lightning"/>
+                <element inactive_on_update="false" label="Opsramp" sequence="20" value="Opsramp"/>
+                <element inactive_on_update="false" label="Apex" sequence="30" value="Apex"/>
+                <element inactive_on_update="false" label="NGCS" sequence="40" value="NGCS"/>
+            </choice>
+        </element>
+    </element>
+</database>
